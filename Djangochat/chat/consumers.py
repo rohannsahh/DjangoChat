@@ -1,3 +1,4 @@
+
 # chat/consumers.py
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -9,7 +10,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         # Get users from URL route
         self.user_id = self.scope['url_route']['kwargs']['user_id']
-        self.room_group_name = f'chat_{self.user_id}'
+        current_user = self.scope['user'].id
+        
+        # Create a unique room name for the chat between these two users
+        # Sort IDs to ensure same room name regardless of who connected first
+        users = sorted([int(self.user_id), current_user])
+        self.room_group_name = f'chat_{users[0]}_{users[1]}'
+        
+        print(f"Connecting to room: {self.room_group_name}")
 
         # Join room group
         await self.channel_layer.group_add(
@@ -19,6 +27,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.accept()
 
     async def disconnect(self, close_code):
+        print(f"Disconnecting from room: {self.room_group_name}")
         # Leave room group
         await self.channel_layer.group_discard(
             self.room_group_name,
@@ -29,6 +38,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         data = json.loads(text_data)
         message = data['message']
         receiver_id = data['receiver_id']
+        
+        print(f"Received message in room {self.room_group_name}: {message}")
 
         # Save message to database
         await self.save_message(
@@ -50,6 +61,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def chat_message(self, event):
         message = event['message']
         sender = event['sender']
+        
+        print(f"Broadcasting in room {self.room_group_name}: {message}")
 
         # Send message to WebSocket
         await self.send(text_data=json.dumps({
@@ -64,4 +77,4 @@ class ChatConsumer(AsyncWebsocketConsumer):
             sender=sender,
             receiver=receiver,
             content=message
-        )
+        )        

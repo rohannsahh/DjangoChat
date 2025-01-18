@@ -27,18 +27,22 @@ def chat_view(request):
     return render(request, 'chat/chat.html', {'users': users})
 
 @login_required
-@login_required
 def get_messages(request, user_id):
+    print(f"Fetching messages for users {request.user.id} and {user_id}")
     other_user = User.objects.get(id=user_id)
     messages = Message.objects.filter(
-        Q(sender=request.user, receiver=other_user) | Q(sender=other_user, receiver=request.user)
+        (Q(sender=request.user) & Q(receiver=other_user)) |
+        (Q(sender=other_user) & Q(receiver=request.user))
     ).order_by('timestamp')
     
-    return JsonResponse([{
+    message_list = [{
         'sender': msg.sender.username,
         'content': msg.content,
         'timestamp': msg.timestamp.strftime('%Y-%m-%d %H:%M:%S')
-    } for msg in messages], safe=False)
+    } for msg in messages]
+    
+    print(f"Found {len(message_list)} messages")
+    return JsonResponse(message_list, safe=False)
 
 
 

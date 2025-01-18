@@ -14,6 +14,7 @@
                 </div>
             </div>
         </div>
+
         <div class="col-md-9 p-0">
             <div class="chat-container">
                 <div class="messages" id="messages">
@@ -36,6 +37,7 @@
 
 <script>
 
+
 // In your chat.html template
 let chatSocket = null;
 let currentReceiverId = null;
@@ -46,20 +48,25 @@ function connectWebSocket(userId) {
     }
 
     chatSocket = new WebSocket(
-        `ws://${window.location.host}/ws/chat/${userId}/`
+        'ws://' + window.location.host + '/ws/chat/' + userId + '/'
     );
 
     chatSocket.onopen = function(e) {
-        console.log('WebSocket connected');
+        console.log('WebSocket connected to user:', userId);
     };
 
     chatSocket.onmessage = function(e) {
         const data = JSON.parse(e.data);
+        console.log('Received message:', data);
         appendMessage(data.sender, data.message);
     };
 
     chatSocket.onclose = function(e) {
         console.log('WebSocket disconnected');
+    };
+
+    chatSocket.onerror = function(e) {
+        console.error('WebSocket error:', e);
     };
 }
 
@@ -74,22 +81,32 @@ document.querySelectorAll('.user-item').forEach(item => {
         // Show chat form
         document.querySelector('#chat-form').classList.remove('d-none');
         
-        // Load previous messages
+        // Clear and load previous messages
+        document.querySelector('#messages').innerHTML = '';
         loadPreviousMessages(userId);
     });
 });
 
 function loadPreviousMessages(userId) {
-    fetch(`/chat/messages/${userId}/`)
-        .then(response => response.json())
+    fetch(`/messages/${userId}/`)  
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
         .then(messages => {
             const messagesDiv = document.querySelector('#messages');
             messagesDiv.innerHTML = '';
             messages.forEach(message => {
                 appendMessage(message.sender, message.content);
             });
+        })
+        .catch(error => {
+            console.error('Error loading messages:', error);
         });
 }
+
 
 document.querySelector('#chat-form').addEventListener('submit', function(e) {
     e.preventDefault();
@@ -97,6 +114,7 @@ document.querySelector('#chat-form').addEventListener('submit', function(e) {
     const message = messageInput.value.trim();
     
     if (message && chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+        console.log('Sending message to:', currentReceiverId);
         chatSocket.send(JSON.stringify({
             'message': message,
             'receiver_id': currentReceiverId
@@ -104,6 +122,15 @@ document.querySelector('#chat-form').addEventListener('submit', function(e) {
         messageInput.value = '';
     }
 });
+
+
+
+
+
+
+
+
+
 
 function appendMessage(sender, content) {
     const messagesDiv = document.querySelector('#messages');
@@ -113,5 +140,8 @@ function appendMessage(sender, content) {
     messagesDiv.appendChild(messageElement);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
+
+
+
 </script>
 {% endblock %}
